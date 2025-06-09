@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PhysioRoutine - Your Personal Physiotherapy Assistant</title>
+    <meta
+      name="description"
+      content="Personalized physiotherapy exercise routines with guided instructions"
+    />
+    <meta name="theme-color" content="#3b82f6" />
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json" />
+
+    <!-- Icons -->
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/api/placeholder/32/32"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/api/placeholder/16/16"
+    />
+    <link rel="apple-touch-icon" href="/api/placeholder/180/180" />
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css" />
+
+    <!-- Fonts -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <!-- Navigation Header -->
+    <header class="header">
+      <div class="container">
+        <div class="nav-brand">
+          <h1>PhysioRoutine</h1>
+        </div>
+        <nav class="nav-tabs">
+          <button class="nav-tab active" data-tab="routines">
+            My Routines
+          </button>
+          <button class="nav-tab" data-tab="create">Create</button>
+          <button class="nav-tab" data-tab="exercises">Exercises</button>
+          <button class="nav-tab" data-tab="progress">Progress</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <!-- Routines Tab -->
+      <section id="routines-tab" class="tab-content active">
+        <div class="container">
+          <div class="section-header">
+            <h2>My Routines</h2>
+            <button class="btn btn-primary" id="new-routine-btn">
+              + New Routine
+            </button>
+          </div>
+
+          <div id="routines-list" class="routines-grid">
+            <!-- Routines will be populated by JavaScript -->
+          </div>
+
+          <div id="no-routines" class="empty-state">
+            <div class="empty-icon">🏃‍♂️</div>
+            <h3>No routines yet</h3>
+            <p>Create your first physiotherapy routine to get started</p>
+            <button class="btn btn-primary" onclick="switchTab('create')">
+              Create Routine
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Create Routine Tab -->
+      <section id="create-tab" class="tab-content">
+        <div class="container">
+          <h2>Create New Routine</h2>
+
+          <form id="routine-form" class="routine-form">
+            <div class="form-group">
+              <label for="routine-name">Routine Name</label>
+              <input
+                type="text"
+                id="routine-name"
+                placeholder="e.g., Morning Stretch"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="routine-description">Description (Optional)</label>
+              <textarea
+                id="routine-description"
+                placeholder="Brief description of this routine"
+              ></textarea>
+            </div>
+
+            <div class="form-section">
+              <h3>Select Exercises</h3>
+              <div id="exercise-selection" class="exercise-grid">
+                <!-- Exercise options will be populated by JavaScript -->
+              </div>
+            </div>
+
+            <div class="form-section">
+              <h3>Selected Exercises</h3>
+              <div id="selected-exercises" class="selected-exercises">
+                <p class="no-selection">No exercises selected yet</p>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                onclick="resetForm()"
+              >
+                Reset
+              </button>
+              <button type="submit" class="btn btn-primary">
+                Save Routine
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Exercises Tab -->
+      <section id="exercises-tab" class="tab-content">
+        <div class="container">
+          <h2>Exercise Library</h2>
+          <div id="exercises-library" class="exercises-library">
+            <!-- Exercise library will be populated by JavaScript -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Progress Tab -->
+      <section id="progress-tab" class="tab-content">
+        <div class="container">
+          <h2>Progress Tracking</h2>
+
+          <div class="progress-stats">
+            <div class="stat-card">
+              <div class="stat-number" id="total-sessions">0</div>
+              <div class="stat-label">Total Sessions</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number" id="this-week">0</div>
+              <div class="stat-label">This Week</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number" id="streak">0</div>
+              <div class="stat-label">Day Streak</div>
+            </div>
+          </div>
+
+          <div class="progress-history">
+            <h3>Recent Activity</h3>
+            <div id="activity-log" class="activity-log">
+              <p class="no-activity">No activity recorded yet</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Routine Playback Modal -->
+    <div id="playback-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="playback-routine-name">Routine Name</h3>
+          <button class="modal-close" onclick="closePlayback()">&times;</button>
+        </div>
+
+        <div class="playback-container">
+          <div class="exercise-display">
+            <div class="exercise-media-container">
+              <div id="current-exercise-media">
+                <!-- Exercise media will be inserted here -->
+              </div>
+            </div>
+
+            <div class="exercise-info">
+              <h4 id="current-exercise-name">Exercise Name</h4>
+              <p id="current-exercise-description">Exercise description</p>
+
+              <div class="exercise-details">
+                <span class="detail">
+                  <strong>Reps:</strong> <span id="current-reps">10</span>
+                </span>
+                <span class="detail">
+                  <strong>Sets:</strong> <span id="current-sets">3</span>
+                </span>
+                <span class="detail">
+                  <strong>Rest:</strong> <span id="current-rest">30s</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="playback-progress">
+            <div class="progress-info">
+              <span
+                >Exercise <span id="current-exercise-num">1</span> of
+                <span id="total-exercises">5</span></span
+              >
+              <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="playback-controls">
+            <button
+              class="btn btn-secondary"
+              id="prev-exercise"
+              onclick="previousExercise()"
+            >
+              ← Previous
+            </button>
+            <button
+              class="btn btn-primary"
+              id="play-pause-btn"
+              onclick="togglePlayPause()"
+            >
+              Start
+            </button>
+            <button
+              class="btn btn-secondary"
+              id="next-exercise"
+              onclick="nextExercise()"
+            >
+              Next →
+            </button>
+          </div>
+
+          <div class="timer-display" id="timer-display">
+            <div class="timer-circle">
+              <span id="timer-text">Ready</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exercise Detail Modal -->
+    <div id="exercise-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="exercise-modal-name">Exercise Details</h3>
+          <button class="modal-close" onclick="closeExerciseModal()">
+            &times;
+          </button>
+        </div>
+
+        <div class="exercise-detail-content">
+          <div class="exercise-media-container">
+            <div id="exercise-modal-media">
+              <!-- Exercise media will be inserted here -->
+            </div>
+          </div>
+          <p id="exercise-modal-description"></p>
+
+          <div class="exercise-modal-actions">
+            <button class="btn btn-primary" onclick="addToCurrentRoutine()">
+              Add to Routine
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+      <p>Loading...</p>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Service Worker Registration -->
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("sw.js")
+            .then((registration) => console.log("SW registered"))
+            .catch((error) => console.log("SW registration failed"));
+        });
+      }
+    </script>
+
+    <!-- Main JavaScript -->
+    <script src="script.js"></script>
+  </body>
+</html>

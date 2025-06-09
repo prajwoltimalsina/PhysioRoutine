@@ -1,0 +1,129 @@
+{
+  "name": "Physio Exercise App",
+  "short_name": "PhysioApp",
+  "description": "A physiotherapy exercise routine app",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en-US",
+  "categories": ["health", "fitness", "medical"],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/api/placeholder/72/72",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/api/placeholder/96/96",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/api/placeholder/128/128",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/api/placeholder/144/144",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/api/placeholder/152/152",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/api/placeholder/384/384",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Start Quick Routine",
+      "short_name": "Quick Start",
+      "description": "Start your most recent routine",
+      "url": "/?action=quick-start",
+      "icons": [
+        {
+          "src": "/api/placeholder/96/96",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Create New Routine",
+      "short_name": "New Routine",
+      "description": "Create a new exercise routine",
+      "url": "/?action=create",
+      "icons": [
+        {
+          "src": "/api/placeholder/96/96",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "View Progress",
+      "short_name": "Progress",
+      "description": "Check your exercise progress",
+      "url": "/?action=progress",
+      "icons": [
+        {
+          "src": "/api/placeholder/96/96",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/exercises/images/hamstring-stretch.jpg",
+      "sizes": "1280x720",
+      "type": "image/jpeg",
+      "label": "Hamstring Stretch Exercise"
+    },
+    {
+      "src": "/exercises/images/piriformis-stretch.jpg",
+      "sizes": "1280x720",
+      "type": "image/jpeg",
+      "label": "Piriformis Stretch Exercise"
+    },
+    {
+      "src": "/api/placeholder/540/720",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/api/placeholder/1024/768",
+      "sizes": "1024x768",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  }
+}

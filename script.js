@@ -9,6 +9,8 @@ class PhysioApp {
         this.timer = null;
         this.currentTime = 0;
         this.selectedExercises = [];
+        this.editingRoutineId = null;
+        this.lastBackupTime = null;
         
         this.init();
     }
@@ -18,8 +20,10 @@ class PhysioApp {
             await this.initIndexedDB();
             await this.loadExerciseDatabase();
             this.setupEventListeners();
-            this.loadRoutines();
-            this.loadProgress();
+            await this.loadRoutines();
+            await this.loadProgress();
+            await this.checkAndRestoreBackup();
+            this.setupAutomaticBackup();
             this.showLoading(false);
         } catch (error) {
             console.error('App initialization failed:', error);
@@ -245,7 +249,11 @@ async getAllFromStore(store) {
                 defaultReps: 1,
                 defaultSets: 2,
                 defaultRestTime: 45,
-                instructions: 'Step 1: Lie on your back, raise your left leg, and clasp your hands around the back of your left thigh, pulling your knee close to your chest. Step 2: While keeping your knee near your chest, slowly straighten your left knee until you feel a stretch along the back of your thigh. Hold for 30-45 seconds, then repeat on the opposite side.',
+                instructions: 'Step 1: Lie flat on your back and lift your left leg up. Use both hands to hold the back of your thigh, bringing the knee toward your chest.\nStep 2: While keeping your knee close to your chest, begin straightening your leg until you feel a gentle pull along the back of your thigh. Maintain this position for 30–45 seconds, then switch legs.',
+                
+                
+                
+                
                 benefits: ['Improves hamstring flexibility', 'Reduces muscle tension', 'Prevents injury'],
                 difficulty: 'Beginner'
             },
@@ -258,7 +266,8 @@ async getAllFromStore(store) {
                 defaultReps: 1,
                 defaultSets: 2,
                 defaultRestTime: 45,
-                instructions: 'Step 1: Lie on your back with knees bent and feet flat on the floor. Cross your right ankle over your left knee. Step 2: Clasp your hands around your left thigh and pull it toward your chest. You should feel the stretch in your right buttock, hip, and the back of your thigh. Hold for 30-45 seconds, then repeat on the opposite side.',
+                instructions: 'Step 1:  Start by lying on your back, knees bent, and feet resting on the floor. Cross your right ankle over your left knee.  Step 2:Reach around your left thigh and gently pull it toward your chest. You should feel the stretch in your right glute, hip, and rear thigh. Hold for 30–45 seconds before switching sides.',
+               
                 benefits: ['Relieves sciatic pain', 'Improves hip mobility', 'Reduces lower back tension'],
                 difficulty: 'Beginner'
             },
@@ -271,7 +280,7 @@ async getAllFromStore(store) {
                 defaultReps: 1,
                 defaultSets: 2,
                 defaultRestTime: 45,
-                instructions: 'Step 1: Stand facing a bench or a sturdy chair, with feet pointing forward. Place your left foot on the bench, ensuring your knee angle is greater than 90 degrees. Step 2: Shift your weight forward toward the foot on the bench, feeling a stretch in the front of your right hip. Hold for 30-45 seconds, then repeat on the opposite side.',
+                instructions: 'Step 1: Face a bench or stable chair with your feet pointed straight ahead. Place your left foot on the raised surface so that your knee forms an angle larger than 90 degrees. Step 2:Lean forward into the front leg, feeling the stretch across the front of your right hip (and possibly your right calf). Hold for 30–45 seconds, then repeat with the other leg.',
                 benefits: ['Improves hip flexibility', 'Reduces lower back pain', 'Enhances posture'],
                 difficulty: 'Beginner'
             },
@@ -284,7 +293,7 @@ async getAllFromStore(store) {
                 defaultReps: 15,
                 defaultSets: 3,
                 defaultRestTime: 30,
-                instructions: 'Step 1: Lie on your back, bend your right knee, and keep your left foot flat on the floor. Step 2: Point the toes of your left foot toward the ceiling, slowly lift your left leg (keeping your knee straight) to about 45 degrees, then slowly lower it back down. Perform 10-20 repetitions, then repeat on the opposite side.',
+                instructions: 'Step 1: Lie down with your right knee bent and your left leg extended. Your left foot should be flat on the floor. Step 2: Point the toes of your left foot toward the ceiling, slowly lift your left leg (keeping your knee straight) to about 45 degrees, then slowly lower it back down. Perform 10-20 repetitions, then repeat on the opposite side.',
                 benefits: ['Strengthens quadriceps', 'Improves hip stability', 'Enhances leg control'],
                 difficulty: 'Beginner'
             },
@@ -297,7 +306,7 @@ async getAllFromStore(store) {
                 defaultReps: 15,
                 defaultSets: 3,
                 defaultRestTime: 30,
-                instructions: 'Step 1: Lie on your back with knees bent and feet close to your buttocks, a little wider than hip distance apart. Step 2: Squeeze your glute muscles to lift your pelvis off the floor, keeping your knees aligned over your ankles. Hold for 3-5 seconds, then slowly lower back to the starting position. Repeat 10-20 times.',
+                instructions: 'Step 1: Lie on your back with your knees bent and your feet positioned near your glutes, slightly wider than hip-width. Step 2:Contract your glutes and lift your hips off the ground so your body forms a straight line from knees to shoulders. Keep knees above ankles. Hold for 3–5 seconds, then lower down slowly. Repeat 10–20 times',
                 benefits: ['Strengthens glutes', 'Improves core stability', 'Enhances hip control'],
                 difficulty: 'Beginner'
             },
@@ -643,6 +652,18 @@ async getAllFromStore(store) {
         document.getElementById('routine-form').reset();
         this.selectedExercises = [];
         this.updateSelectedExercisesDisplay();
+        this.editingRoutineId = null;
+        
+        // Reset the save button text
+        const saveButton = document.querySelector('#routine-form button[type="submit"]');
+        saveButton.textContent = 'Save Routine';
+        
+        // Reset the form submit handler
+        const form = document.getElementById('routine-form');
+        form.onsubmit = (e) => {
+            e.preventDefault();
+            this.saveRoutine();
+        };
         
         // Clear exercise selections
         document.querySelectorAll('.exercise-card.selected').forEach(card => {
@@ -687,8 +708,20 @@ async getAllFromStore(store) {
         const mediaContainer = document.getElementById('exercise-modal-media');
         mediaContainer.innerHTML = this.createMediaElement(exercise.image);
         
+        // Format instructions by splitting on "Step" and ensuring each step appears on a new line
+        const instructions = exercise.instructions;
+        const formattedInstructions = instructions
+            .split(/(?=Step \d+:)/)  // Split on "Step X:" while keeping the delimiter
+            .map(step => step.trim())
+            .filter(step => step)  // Remove empty strings
+            .map(step => `<div class="exercise-step">${step}</div>`)
+            .join('');
+        
         document.getElementById('exercise-modal-description').innerHTML = `
-            <p><strong>Instructions:</strong> ${exercise.instructions}</p>
+            <div class="exercise-instructions">
+                <strong>Instructions:</strong>
+                ${formattedInstructions}
+            </div>
             <p><strong>Benefits:</strong> ${exercise.benefits.join(', ')}</p>
             <p><strong>Difficulty:</strong> ${exercise.difficulty}</p>
             <p><strong>Category:</strong> ${exercise.category}</p>
@@ -718,7 +751,16 @@ async getAllFromStore(store) {
         const exercise = this.currentRoutine.exercises[this.currentExerciseIndex];
         
         document.getElementById('current-exercise-name').textContent = exercise.name;
-        document.getElementById('current-exercise-description').textContent = exercise.instructions || exercise.description;
+        
+        // Format instructions by splitting on "Step" and ensuring each step appears on a new line
+        const instructions = exercise.instructions || exercise.description;
+        const formattedInstructions = instructions
+            .split(/(?=Step \d+:)/)  // Split on "Step X:" while keeping the delimiter
+            .map(step => step.trim())
+            .filter(step => step)  // Remove empty strings
+            .map(step => `<div class="exercise-step">${step}</div>`)
+            .join('');
+        document.getElementById('current-exercise-description').innerHTML = formattedInstructions;
         
         // Update media display
         const mediaContainer = document.getElementById('current-exercise-media');
@@ -759,7 +801,10 @@ async getAllFromStore(store) {
 
     startExercise() {
         const exercise = this.currentRoutine.exercises[this.currentExerciseIndex];
-        this.currentTime = exercise.restTime;
+        // Only set currentTime if it's not already set (i.e., first start)
+        if (this.currentTime === 0) {
+            this.currentTime = exercise.restTime;
+        }
         
         this.updateTimerDisplay();
         this.timer = setInterval(() => {
@@ -784,6 +829,7 @@ async getAllFromStore(store) {
 
     completeCurrentExercise() {
         this.pauseExercise();
+        this.currentTime = 0; // Reset the timer when exercise is completed
         
         if (this.currentExerciseIndex < this.currentRoutine.exercises.length - 1) {
             this.showToast('Exercise completed! Moving to next...', 'success');
@@ -890,15 +936,73 @@ async getAllFromStore(store) {
     // Progress Tracking
     async loadProgress() {
         try {
-            const transaction = this.db.transaction(['progress'], 'readonly');
+            const transaction = this.db.transaction(['progress'], 'readwrite');
             const store = transaction.objectStore('progress');
             const progressEntries = await this.getAllFromStore(store);
             
-            this.updateProgressStats(progressEntries);
-            this.updateActivityLog(progressEntries);
+            // Clean up old entries (keep last 365 days)
+            await this.cleanupOldProgress(store, progressEntries);
+            
+            // Reload entries after cleanup
+            const updatedEntries = await this.getAllFromStore(store);
+            this.updateProgressStats(updatedEntries);
+            this.updateActivityLog(updatedEntries);
         } catch (error) {
             console.error('Error loading progress:', error);
         }
+    }
+
+    async cleanupOldProgress(store, entries) {
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        
+        // Find entries older than one year
+        const oldEntries = entries.filter(entry => 
+            new Date(entry.date) < oneYearAgo
+        );
+        
+        // Keep monthly summaries for old entries
+        if (oldEntries.length > 0) {
+            const monthlySummaries = this.createMonthlySummaries(oldEntries);
+            
+            // Delete old detailed entries
+            for (const entry of oldEntries) {
+                await store.delete(entry.id);
+            }
+            
+            // Add monthly summaries
+            for (const summary of monthlySummaries) {
+                await store.add(summary);
+            }
+        }
+    }
+
+    createMonthlySummaries(entries) {
+        const summaries = new Map();
+        
+        entries.forEach(entry => {
+            const date = new Date(entry.date);
+            const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
+            
+            if (!summaries.has(monthKey)) {
+                summaries.set(monthKey, {
+                    routineId: 'monthly-summary',
+                    routineName: `Monthly Summary - ${monthKey}`,
+                    date: new Date(date.getFullYear(), date.getMonth(), 1).toISOString(),
+                    exercises: 0,
+                    duration: 0,
+                    sessions: 0,
+                    isSummary: true
+                });
+            }
+            
+            const summary = summaries.get(monthKey);
+            summary.exercises += entry.exercises;
+            summary.duration += entry.duration;
+            summary.sessions += 1;
+        });
+        
+        return Array.from(summaries.values());
     }
 
     updateProgressStats(progressEntries) {
@@ -965,6 +1069,18 @@ async getAllFromStore(store) {
         activityLog.innerHTML = recentEntries.map(entry => {
             const date = new Date(entry.date);
             const timeAgo = this.getTimeAgo(date);
+            
+            if (entry.isSummary) {
+                return `
+                    <div class="activity-item summary">
+                        <div class="activity-info">
+                            <h4>${entry.routineName}</h4>
+                            <p>${entry.sessions} sessions, ${entry.exercises} exercises completed</p>
+                        </div>
+                        <div class="activity-date">Monthly Summary</div>
+                    </div>
+                `;
+            }
             
             return `
                 <div class="activity-item">
@@ -1063,48 +1179,172 @@ async getAllFromStore(store) {
         }
     }
 
-    // Export/Import Routines
+    // Backup System
+    setupAutomaticBackup() {
+        // Create backup every 24 hours
+        setInterval(async () => {
+            await this.createBackup();
+        }, 24 * 60 * 60 * 1000);
+
+        // Also create backup when window is about to close
+        window.addEventListener('beforeunload', async () => {
+            await this.createBackup();
+        });
+    }
+
+    async createBackup() {
+        try {
+            const routines = await this.getAllFromStore(
+                this.db.transaction(['routines'], 'readonly').objectStore('routines')
+            );
+            const progress = await this.getAllFromStore(
+                this.db.transaction(['progress'], 'readonly').objectStore('progress')
+            );
+
+            const backupData = {
+                routines,
+                progress,
+                timestamp: new Date().toISOString()
+            };
+
+            // Save to localStorage as a fallback
+            localStorage.setItem('physioAppBackup', JSON.stringify(backupData));
+            
+            // Also save to IndexedDB
+            const transaction = this.db.transaction(['backups'], 'readwrite');
+            const store = transaction.objectStore('backups');
+            await store.put(backupData);
+
+            this.lastBackupTime = new Date();
+            console.log('Backup created successfully');
+        } catch (error) {
+            console.error('Backup creation failed:', error);
+        }
+    }
+
+    async checkAndRestoreBackup() {
+        try {
+            // First check localStorage
+            const localBackup = localStorage.getItem('physioAppBackup');
+            if (localBackup) {
+                const backupData = JSON.parse(localBackup);
+                await this.restoreFromBackup(backupData);
+                return;
+            }
+
+            // Then check IndexedDB backups
+            const transaction = this.db.transaction(['backups'], 'readonly');
+            const store = transaction.objectStore('backups');
+            const backups = await this.getAllFromStore(store);
+            
+            if (backups.length > 0) {
+                // Get the most recent backup
+                const latestBackup = backups.sort((a, b) => 
+                    new Date(b.timestamp) - new Date(a.timestamp)
+                )[0];
+                
+                await this.restoreFromBackup(latestBackup);
+            }
+        } catch (error) {
+            console.error('Backup restoration failed:', error);
+        }
+    }
+
+    async restoreFromBackup(backupData) {
+        try {
+            // Restore routines
+            const routineTransaction = this.db.transaction(['routines'], 'readwrite');
+            const routineStore = routineTransaction.objectStore('routines');
+            await routineStore.clear();
+            for (const routine of backupData.routines) {
+                await routineStore.add(routine);
+            }
+
+            // Restore progress
+            const progressTransaction = this.db.transaction(['progress'], 'readwrite');
+            const progressStore = progressTransaction.objectStore('progress');
+            await progressStore.clear();
+            for (const progress of backupData.progress) {
+                await progressStore.add(progress);
+            }
+
+            this.showToast('Data restored from backup', 'success');
+            await this.loadRoutines();
+            await this.loadProgress();
+        } catch (error) {
+            console.error('Data restoration failed:', error);
+            this.showToast('Failed to restore data from backup', 'error');
+        }
+    }
+
+    // Enhanced export functionality
     async exportRoutines() {
         try {
             const routines = await this.getAllFromStore(
                 this.db.transaction(['routines'], 'readonly').objectStore('routines')
             );
+            const progress = await this.getAllFromStore(
+                this.db.transaction(['progress'], 'readonly').objectStore('progress')
+            );
             
-            const dataStr = JSON.stringify(routines, null, 2);
+            const exportData = {
+                routines,
+                progress,
+                exportDate: new Date().toISOString(),
+                version: '1.0'
+            };
+            
+            const dataStr = JSON.stringify(exportData, null, 2);
             const dataBlob = new Blob([dataStr], {type: 'application/json'});
             
             const url = URL.createObjectURL(dataBlob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = 'physio-routines.json';
+            link.download = `physio-routines-backup-${new Date().toISOString().split('T')[0]}.json`;
             link.click();
             
             URL.revokeObjectURL(url);
-            this.showToast('Routines exported successfully', 'success');
+            this.showToast('Backup exported successfully', 'success');
         } catch (error) {
             console.error('Export failed:', error);
-            this.showToast('Failed to export routines', 'error');
+            this.showToast('Failed to export backup', 'error');
         }
     }
 
+    // Enhanced import functionality
     async importRoutines(file) {
         try {
             const text = await file.text();
-            const routines = JSON.parse(text);
+            const importData = JSON.parse(text);
             
-            const transaction = this.db.transaction(['routines'], 'readwrite');
-            const store = transaction.objectStore('routines');
+            if (!importData.routines || !importData.progress) {
+                throw new Error('Invalid backup file format');
+            }
+
+            const transaction = this.db.transaction(['routines', 'progress'], 'readwrite');
+            const routineStore = transaction.objectStore('routines');
+            const progressStore = transaction.objectStore('progress');
             
-            for (const routine of routines) {
-                delete routine.id; // Let IndexedDB assign new IDs
-                await store.add(routine);
+            // Clear existing data
+            await routineStore.clear();
+            await progressStore.clear();
+            
+            // Import routines
+            for (const routine of importData.routines) {
+                await routineStore.add(routine);
             }
             
-            this.showToast(`Imported ${routines.length} routines`, 'success');
-            this.loadRoutines();
+            // Import progress
+            for (const progress of importData.progress) {
+                await progressStore.add(progress);
+            }
+            
+            this.showToast(`Successfully imported ${importData.routines.length} routines and progress data`, 'success');
+            await this.loadRoutines();
+            await this.loadProgress();
         } catch (error) {
             console.error('Import failed:', error);
-            this.showToast('Failed to import routines', 'error');
+            this.showToast('Failed to import backup', 'error');
         }
     }
 
@@ -1165,6 +1405,93 @@ async getAllFromStore(store) {
                 setTimeout(() => inThrottle = false, limit);
             }
         };
+    }
+
+    async editRoutine(routineId) {
+        try {
+            const routine = await this.getRoutineById(routineId);
+            if (!routine) {
+                this.showToast('Routine not found', 'error');
+                return;
+            }
+
+            // Switch to create tab
+            this.switchTab('create');
+
+            // Fill the form with routine data
+            document.getElementById('routine-name').value = routine.name;
+            document.getElementById('routine-description').value = routine.description || '';
+
+            // Set the selected exercises
+            this.selectedExercises = [...routine.exercises];
+            this.updateSelectedExercisesDisplay();
+
+            // Mark the selected exercises in the grid
+            this.selectedExercises.forEach(exercise => {
+                const card = document.querySelector(`[data-exercise-id="${exercise.id}"]`);
+                if (card) {
+                    card.classList.add('selected');
+                }
+            });
+
+            // Change the save button to update
+            const saveButton = document.querySelector('#routine-form button[type="submit"]');
+            saveButton.textContent = 'Update Routine';
+            
+            // Store the routine ID for updating
+            this.editingRoutineId = routineId;
+
+            // Modify the form submit handler for this edit
+            const form = document.getElementById('routine-form');
+            form.onsubmit = (e) => {
+                e.preventDefault();
+                this.updateRoutine(routineId);
+            };
+
+        } catch (error) {
+            console.error('Error loading routine for edit:', error);
+            this.showToast('Failed to load routine for editing', 'error');
+        }
+    }
+
+    async updateRoutine(routineId) {
+        const name = document.getElementById('routine-name').value.trim();
+        const description = document.getElementById('routine-description').value.trim();
+
+        if (!name) {
+            this.showToast('Please enter a routine name', 'error');
+            return;
+        }
+
+        if (this.selectedExercises.length === 0) {
+            this.showToast('Please select at least one exercise', 'error');
+            return;
+        }
+
+        try {
+            const routine = await this.getRoutineById(routineId);
+            if (!routine) {
+                this.showToast('Routine not found', 'error');
+                return;
+            }
+
+            // Update routine data
+            routine.name = name;
+            routine.description = description;
+            routine.exercises = this.selectedExercises;
+
+            const transaction = this.db.transaction(['routines'], 'readwrite');
+            const store = transaction.objectStore('routines');
+            await store.put(routine);
+            
+            this.showToast('Routine updated successfully!', 'success');
+            this.resetForm();
+            this.loadRoutines();
+            this.switchTab('routines');
+        } catch (error) {
+            console.error('Error updating routine:', error);
+            this.showToast('Failed to update routine', 'error');
+        }
     }
 }
 

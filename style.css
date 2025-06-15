@@ -1045,3 +1045,31 @@ body {
         height: 500px;
     }
 }
+
+.exercise-instructions {
+    margin-bottom: 1.5rem;
+}
+
+.exercise-step {
+    margin: 0.75rem 0;
+    padding: 0.75rem;
+    background: #f8fafc;
+    border-radius: 6px;
+    color: #1e293b;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.exercise-step:first-child {
+    margin-top: 0.5rem;
+}
+
+.exercise-step:last-child {
+    margin-bottom: 0.5rem;
+}
+
+#current-exercise-description {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}

@@ -119,8 +119,15 @@ self.addEventListener('fetch', (event) => {
                     if (response) return response;
 
                     return fetch(request).then((networkResponse) => {
+                        if (!networkResponse || networkResponse.status !== 200) {
+                            // Return a fallback image if the request fails
+                            return cache.match('/api/placeholder/300/200');
+                        }
                         cache.put(request, networkResponse.clone());
                         return networkResponse;
+                    }).catch(() => {
+                        // Return a fallback image if offline
+                        return cache.match('/api/placeholder/300/200');
                     });
                 });
             })
@@ -128,7 +135,31 @@ self.addEventListener('fetch', (event) => {
     } else {
         event.respondWith(
             caches.match(request).then((response) => {
-                return response || fetch(request);
+                if (response) return response;
+
+                return fetch(request).then((networkResponse) => {
+                    if (!networkResponse || networkResponse.status !== 200) {
+                        // Return offline page for HTML requests
+                        if (request.headers.get('accept').includes('text/html')) {
+                            return caches.match('/offline.html');
+                        }
+                        throw new Error('Network response was not ok');
+                    }
+
+                    const responseToCache = networkResponse.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(request, responseToCache);
+                    });
+
+                    return networkResponse;
+                }).catch(() => {
+                    // Return offline page for HTML requests
+                    if (request.headers.get('accept').includes('text/html')) {
+                        return caches.match('/offline.html');
+                    }
+                    // Return cached response for other requests
+                    return caches.match(request);
+                });
             })
         );
     }
@@ -239,6 +270,9 @@ self.addEventListener('periodicsync', (event) => {
     if (event.tag === 'routine-reminder') {
         event.waitUntil(sendRoutineReminder());
     }
+    if (event.tag === 'cleanup-cache') {
+        event.waitUntil(cleanupOldCaches());
+    }
 });
 
 async function sendRoutineReminder() {
@@ -306,13 +340,44 @@ async function cleanupOldCaches() {
     }
 }
 
-// Error handling
+// Enhanced error handling
 self.addEventListener('error', (event) => {
     console.error('Service Worker: Error occurred:', event.error);
+    // Report error to analytics if available
+    if (self.analytics) {
+        self.analytics.reportError(event.error);
+    }
 });
 
 self.addEventListener('unhandledrejection', (event) => {
     console.error('Service Worker: Unhandled promise rejection:', event.reason);
+    // Report error to analytics if available
+    if (self.analytics) {
+        self.analytics.reportError(event.reason);
+    }
+});
+
+// Add network status monitoring
+let isOnline = navigator.onLine;
+
+self.addEventListener('online', () => {
+    isOnline = true;
+    // Trigger sync when back online
+    self.registration.sync.register('sync-routines');
+    self.registration.sync.register('sync-progress');
+});
+
+self.addEventListener('offline', () => {
+    isOnline = false;
+    // Notify clients about offline status
+    self.clients.matchAll().then(clients => {
+        clients.forEach(client => {
+            client.postMessage({
+                type: 'OFFLINE_STATUS',
+                isOnline: false
+            });
+        });
+    });
 });
 
 console.log('Service Worker: Loaded successfully');
